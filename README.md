@@ -1,3 +1,7 @@
+# FreeRTOS cell for the jailhouse hypervisor on X86(QEMU)
+This repo is fork from https://github.com/siemens/freertos-cell
+This project aims at run FreeRTOS on x86 QEMU enviroment with LINUX.
+
 # FreeRTOS cell for the jailhouse hypervisor
 
 [FreeRTOS](http://www.freertos.org/) is a real time operation system
