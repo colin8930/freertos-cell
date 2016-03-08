@@ -105,7 +105,6 @@ void vApplicationIdleHook( void );
 void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName );
 void vApplicationIRQHandler( unsigned ulICCIAR );
 void __div0(void);
-int printf(const char *format, ...);
 /* }}} */
 
 /* {{{1 Global variables */
