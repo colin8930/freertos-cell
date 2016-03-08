@@ -258,15 +258,6 @@ void vConfigureTickInterrupt( void )
   timer_init(BEATS_PER_SEC);
 }
 
-
-static void handle_uart_irq(void)
-{
-  uint32_t v = serial_irq_getchar(ser_dev);
-  BaseType_t do_yield = pdFALSE;
-  xTaskNotifyFromISR(uart_task_handle, v, eSetValueWithOverwrite, &do_yield);
-  portYIELD_FROM_ISR(do_yield);
-}
-
 void vApplicationIRQHandler(unsigned int irqn)
 {
   switch(irqn) {
