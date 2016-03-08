@@ -5,6 +5,8 @@ INMATES = $(src)/../jailhouse/inmates
 INMATES_LIB = $(INMATES)/lib
 export INMATES_LIB
 
+include $(INMATES_LIB)/x86/Makefile.lib
+
 INCLUDES := -I$(INMATES_LIB)/x86 \
 	    -I$(INMATES_LIB)/../../hypervisor/arch/x86/include \
 	    -I$(INMATES_LIB)/../../hypervisor/include \
