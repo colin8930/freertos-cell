@@ -172,20 +172,6 @@ void __div0(void)
   ARM_SLEEP;
 }
 
-/* }}} */
-
-/* {{{1 LED control */
-static void led_toggle(void)
-{
-#ifdef CONFIG_MACH_SUN7I
-#define PIO_BASE ((void*)0x01c20800)
-  uint32_t *led_reg = PIO_BASE + 7*0x24 + 0x10;
-  *led_reg ^= 1<<24;
-#endif
-}
-/* }}} */
-
-/* {{{1 Timer control */
 static int32_t timer_value_for_period;
 static unsigned timer_frq;
 
@@ -193,25 +179,6 @@ static inline void timer_on(void)
 {
 	arm_write_sysreg(CNTV_CTL_EL0, 1);
 }
-
-#if 0
-static inline void timer_off(void)
-{
-	arm_write_sysreg(CNTV_CTL_EL0, 0);
-}
-
-static u64 get_actual_ticks(void)
-{
-  u64 pct64;
-  arm_read_sysreg(CNTVCT, pct64);
-  return pct64;
-}
-
-static inline unsigned ticks_to_ns(unsigned ticks)
-{
-  return (ticks*1000) / ( timer_frq/1000/1000);
-}
-#endif
 
 static inline void timer_set(int32_t val)
 {
