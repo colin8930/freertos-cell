@@ -87,7 +87,7 @@
 /* {{{1 Defines */
 #define TIMER_IRQ 27
 #define BEATS_PER_SEC configTICK_RATE_HZ
-#define ARM_SLEEP asm volatile("wfi" : : : "memory")
+#define X86_SLEEP asm volatile("hlt")
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
 
 #define UART_BUFSIZE 72
@@ -217,18 +217,6 @@ static void serial_print(char *buf, int n)
 {
   buf[n] = 0;
   UART_OUTPUT("TUA\t%d %s\n", n, buf);
-}
-
-static __attribute__((unused)) void hyp_putchar(int c)
-{
-  asm volatile(
-      "mov r0, #8;"
-      "mov r1, %0;"
-      "hvc #0;"
-      : /* outputs */
-      : "r" (c) /* inputs */
-      : "r0", "r1" /* clobbered */
-      );
 }
 
 static void uartTask(void *pvParameters)
@@ -391,7 +379,7 @@ void inmate_main(void)
   vTaskStartScheduler();
   printf("vTaskStartScheduler terminated: strange!!!\n");
 	while (1) {
-    ARM_SLEEP;
+    X86_SLEEP;
   }
 }
 /* }}} */
