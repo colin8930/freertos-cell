@@ -74,10 +74,7 @@
 /* {{{1 Includes */
 #include <stdint.h>
 #include <inmate.h>
-#include "sysregs.h"
 #include "string.h"
-#include "serial.h"
-#include "printf-stdarg.h"
 
 /* Scheduler include files. */
 #include "FreeRTOS.h"

@@ -34,8 +34,10 @@ FREERTOS_OBJS = freertos/Source/queue.o \
 	freertos/Source/timers.o \
 	freertos/Source/tasks.o
 
-FREERTOS_RUNTIME_OBJS = $(INMATES_LIB)/int.o \
+FREERTOS_RUNTIME_OBJS = freertos-runtime/string.o \
+	$(INMATES_LIB)/int.o \
 	$(INMATES_LIB)/printk.o
+
 
 RUNTIME_OBJS = $(FREERTOS_RUNTIME_OBJS) $(FREERTOS_OBJS)
 OBJS = main
