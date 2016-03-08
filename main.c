@@ -182,19 +182,20 @@ static unsigned timer_frq;
 
 static inline void timer_on(void)
 {
-	arm_write_sysreg(CNTV_CTL_EL0, 1);
+	/* arm_write_sysreg(CNTV_CTL_EL0, 1); */
 }
 
 static inline void timer_set(int32_t val)
 {
-	arm_write_sysreg(CNTV_TVAL_EL0, val);
+	/* arm_write_sysreg(CNTV_TVAL_EL0, val); */
+
 }
 
 static inline void timer_set_next_event(void)
 {
   int32_t time_drift;
   /* The timer indicates an overtime with a negative value inside this register */
-  arm_read_sysreg(CNTV_TVAL_EL0, time_drift);
+  /* arm_read_sysreg(CNTV_TVAL_EL0, time_drift); */
   /* If the drift is greater than timer_value_for_period we have lost a time period */
   //configASSERT(-time_drift < timer_value_for_period);
   /* Correct next period by this time drift. The drift is caused by the software */
