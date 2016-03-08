@@ -114,7 +114,6 @@ void __div0(void);
 /* {{{1 Global variables */
 static TaskHandle_t uart_task_handle;
 static SemaphoreHandle_t uart_mutex;
-sio_fd_t ser_dev;
 /* }}} */
 
 /* {{{1 FreeRTOS debug hooks */
@@ -275,14 +274,17 @@ void vApplicationIRQHandler(unsigned int irqn)
       //timer_off();
       FreeRTOS_Tick_Handler();
       break;
+    /* UART irq is not support now */
+    /*
     case UART7_IRQ:
       handle_uart_irq();
       break;
+    */
     case 0x3ff:
       /* This irq should be ignored. It is no longer relevant */
       break;
     default:
-      printf("Spurious irq %d\n", irqn);
+      printk("Spurious irq %d\n", irqn);
       break;
   }
 }
