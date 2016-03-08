@@ -94,7 +94,7 @@
 
 #define UART_LOCK xSemaphoreTake(uart_mutex, portMAX_DELAY)
 #define UART_UNLOCK xSemaphoreGive(uart_mutex)
-#define UART_OUTPUT(args...) do { if(pdPASS == UART_LOCK) { printf(args); UART_UNLOCK;} } while(0)
+#define UART_OUTPUT(args...) do { if(pdPASS == UART_LOCK) { printk(args); UART_UNLOCK;} } while(0)
 
 /* }}} */
 
@@ -128,7 +128,7 @@ void vAssertCalled( const char * pcFile, unsigned long ulLine )
   {
     /* Set ul to a non-zero value using the debugger to step out of this
        function. */
-    printf("%s %s: line=%lu\n", __func__, pcFile, ulLine);
+    printk("%s %s: line=%lu\n", __func__, pcFile, ulLine);
     while( ul == 0 ) {
       portNOP();
     }
@@ -144,7 +144,7 @@ void vApplicationMallocFailedHook( void )
      timers, and semaphores.  The size of the FreeRTOS heap is set by the
      configTOTAL_HEAP_SIZE configuration constant in FreeRTOSConfig.h. */
   taskDISABLE_INTERRUPTS();
-  printf("%s\n", __func__);
+  printk("%s\n", __func__);
   while(1) {
     portNOP();
   }
@@ -160,15 +160,15 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
      function is called if a stack overflow is detected. */
   vTaskSuspendAll();
   taskDISABLE_INTERRUPTS();
-    printf("%s task=%s\n", __func__, pcTaskName);
+    printk("%s task=%s\n", __func__, pcTaskName);
   for( ;; )
-    ARM_SLEEP;
+    X86_SLEEP;
 }
 
 void __div0(void)
 {
-  printf("PANIC: Div by zero error\n");
-  ARM_SLEEP;
+  printk("PANIC: Div by zero error\n");
+  X86_SLEEP;
 }
 
 static int32_t timer_value_for_period;
@@ -328,7 +328,7 @@ static void recvTask(void *pvParameters)
       UART_OUTPUT("Value received: %u\n", (unsigned)value);
     }
     else {
-      printf("No value received\n");
+      printk("No value received\n");
     }
   }
 }
@@ -352,7 +352,7 @@ void inmate_main(void)
 
   if(1) for(i = 0; i < 20; i++) {
     int prio = 1 + i % (configMAX_PRIORITIES-1);
-    printf("Create task %u with prio %d\n", i, prio);
+    printk("Create task %u with prio %d\n", i, prio);
     xTaskCreate( testTask, /* The function that implements the task. */
         "test", /* The text name assigned to the task - for debug only; not used by the kernel. */
         configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
@@ -377,7 +377,7 @@ void inmate_main(void)
         NULL );								    /* The task handle is not required, so NULL is passed. */
   }
   vTaskStartScheduler();
-  printf("vTaskStartScheduler terminated: strange!!!\n");
+  printk("vTaskStartScheduler terminated: strange!!!\n");
 	while (1) {
     X86_SLEEP;
   }
