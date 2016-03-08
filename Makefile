@@ -12,16 +12,14 @@ INCLUDES := -I$(INMATES_LIB)/x86 \
 	    -I$(INMATES_LIB)/../../hypervisor/include \
 	    -I$(src)/freertos/Source/portable/GCC/X86jailhouse
 
-src = $(CURDIR)
-
 CC = gcc
 LD = ld
 AR = ar
 OBJCOPY = objcopy
 
-CFLAGS += -Wall
+CFLAGS += -O2 -Wall -MMD -pipe
 CFLAGS += $(INCLUDES) -I $(src) -I $(src)/freertos/Source/include
-
+ASFLAGS += $(INCLUDES) -I $(src) -I $(src)/freertos/Source/include
 LDFLAGS += -T lscript.lds
 
 EXE_STEM = freertos-demo
@@ -40,8 +38,7 @@ FREERTOS_RUNTIME_OBJS = freertos-runtime/string.o \
 
 
 RUNTIME_OBJS = $(FREERTOS_RUNTIME_OBJS) $(FREERTOS_OBJS)
-OBJS = main
-BOOT = boot
+OBJS = main.o boot.o
 
 RUNTIME_AR = libfreertos.a
 
@@ -49,20 +46,17 @@ all: $(EXE_STEM).bin
 
 DEPS := $(OBJS:.o=.d) $(RUNTIME_OBJS:.o=.d)
 
-$(BOOT).o: $(BOOT).S
-	$(CC) $(CFLAGS) -c -o $@ $^
-
-$(OBJS).o: $(OBJS).c
-	$(CC) $(CFLAGS) -c -o $@ $^
-
-$(EXE_STEM).elf: $(OBJS).o $(BOOT).o $(RUNTIME_AR)
-	$(LD) $(LDFLAGS) -o $@ $^
+$(EXE_STEM).elf: $(OBJS) $(RUNTIME_AR)
+	@echo " LD "$@
+	@$(LD) $(LDFLAGS) -o $@ $^
 
 $(RUNTIME_AR): $(RUNTIME_OBJS)
-	$(AR) -srcv $@ $^
+	@echo "AR "$@
+	@$(AR) -srcv $@ $^
 
 %.bin: %.elf
-	$(OBJCOPY) -O binary $< $@
+	@echo "objcopy" $@
+	@$(OBJCOPY) -O binary $< $@
 
 clean:
 	rm -f $(OBJS) $(EXE_STEM).elf $(EXE_STEM).bin $(RUNTIME_OBJS) $(RUNTIME_AR)
