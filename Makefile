@@ -20,7 +20,7 @@ AR = ar
 OBJCOPY = objcopy
 
 CFLAGS += -O2
-CFLAGS += -Wall -MMD -pipe
+CFLAGS += -Wall -MMD -pipe -m64
 CFLAGS += $(INCLUDES) -I $(src) -I $(src)/freertos/Source/include -I $(src)/freertos-runtime
 
 LDFLAGS += -T lscript.lds
@@ -41,7 +41,8 @@ FREERTOS_RUNTIME_OBJS = freertos-runtime/string.o \
 	freertos-runtime/lib1funcs.o
 
 RUNTIME_OBJS = $(FREERTOS_RUNTIME_OBJS) $(FREERTOS_OBJS)
-OBJS = main.o boot.o
+OBJS = main.o
+BOOT = boot
 
 RUNTIME_AR = libfreertos.a
 
@@ -49,7 +50,10 @@ all: $(EXE_STEM).bin
 
 DEPS := $(OBJS:.o=.d) $(RUNTIME_OBJS:.o=.d)
 
-$(EXE_STEM).elf: $(OBJS) $(RUNTIME_AR)
+$(BOOT).o: $(BOOT).S
+	$(CC) $(CFLAGS) -c -o $@ $^
+
+$(EXE_STEM).elf: $(OBJS) $(BOOT).o $(RUNTIME_AR)
 	$(LD) $(LDFLAGS) -o $@ $^
 
 $(RUNTIME_AR): $(RUNTIME_OBJS)
