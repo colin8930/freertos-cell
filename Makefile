@@ -1,5 +1,12 @@
 .PHONY: clean all
 
+INMATES_LIB = $(INMATES)/lib/x86
+export INMATES_LIB
+
+INCLUDES := -I$(INMATES_LIB) \
+	    -I$(INMATES_LIB)/../hypervisor/arch/x86/include \
+	    -I$(INMATES_LIB)/../hypervisor/include
+
 src = $(CURDIR)
 
 CC = gcc
