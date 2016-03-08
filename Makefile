@@ -1,12 +1,13 @@
 .PHONY: clean all
 
 src = $(CURDIR)
-INMATES_LIB = $(INMATES)/lib/x86
+INMATES = $(src)/../jailhouse/inmates
+INMATES_LIB = $(INMATES)/lib
 export INMATES_LIB
 
-INCLUDES := -I$(INMATES_LIB) \
-	    -I$(INMATES_LIB)/../hypervisor/arch/x86/include \
-	    -I$(INMATES_LIB)/../hypervisor/include \
+INCLUDES := -I$(INMATES_LIB)/x86 \
+	    -I$(INMATES_LIB)/../../hypervisor/arch/x86/include \
+	    -I$(INMATES_LIB)/../../hypervisor/include \
 	    -I$(src)/freertos/Source/portable/GCC/X86jailhouse
 
 src = $(CURDIR)
@@ -18,7 +19,7 @@ OBJCOPY = objcopy
 
 CFLAGS += -O2
 CFLAGS += -Wall -MMD -pipe
-CFLAGS += -I $(src) -I $(src)/freertos/Source/include -I $(src)/freertos-runtime
+CFLAGS += $(INCLUDES) -I $(src) -I $(src)/freertos/Source/include -I $(src)/freertos-runtime
 
 LDFLAGS += -T lscript.lds
 
