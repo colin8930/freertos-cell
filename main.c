@@ -87,7 +87,7 @@
 /* {{{1 Defines */
 #define TIMER_IRQ 27
 #define BEATS_PER_SEC configTICK_RATE_HZ
-#define X86_SLEEP asm volatile("hlt")
+#define X86_SLEEP asm volatile("hlt" : : : "memory")
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
 
 #define UART_BUFSIZE 72
@@ -225,8 +225,6 @@ static void uartTask(void *pvParameters)
   int idx = 0;
   while(pdTRUE) {
     if(pdTRUE == xTaskNotifyWait(0, 0, &c, pdMS_TO_TICKS(250))) {
-      led_toggle();
-      //hyp_putchar(c);
       s[idx] = c;
       if('\r' == s[idx] || idx >= sizeof(s)-1) {
         serial_print(s, idx);
