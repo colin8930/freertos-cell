@@ -74,7 +74,6 @@
 /* {{{1 Includes */
 #include <stdint.h>
 #include "sysregs.h"
-#include "gic-v2.h"
 #include "string.h"
 #include "serial.h"
 #include "printf-stdarg.h"
@@ -322,15 +321,6 @@ static void testTask( void *pvParameters )
   vTaskDelete( NULL );
 }
 
-static void blinkTask(void *pvParameters)
-{
-  TickType_t pxPreviousWakeTime = xTaskGetTickCount();
-  while(1) {
-    led_toggle();
-    vTaskDelayUntil(&pxPreviousWakeTime, pdMS_TO_TICKS(250));
-  }
-}
-
 static void sendTask(void *pvParameters)
 {
   TaskHandle_t recvtask = pvParameters;
@@ -355,203 +345,7 @@ static void recvTask(void *pvParameters)
   }
 }
 
-static void floatTask( void *pvParameters )
-{
-  portFLOAT c, d;
-  unsigned cnt = 0;
-  int id = (int)pvParameters;
-  TickType_t pxPreviousWakeTime = xTaskGetTickCount();
-  portTASK_USES_FLOATING_POINT();
-  c = 1.;
-  while(pdTRUE) {
-    d = 1e6 * (c - (unsigned)c);
-    UART_OUTPUT("FT%d: 1.11^%d=%4d.%06d\n", id, cnt++, (unsigned)c, (unsigned)d);
-    vTaskDelayUntil(&pxPreviousWakeTime, pdMS_TO_TICKS(1000));
-    if(cnt < 133)
-      c *= 1.11;
-    else {
-      c = 1.;
-      cnt = 0;
-    }
-  }
-  vTaskDelete( NULL );
-}
-
-/* }}} */
-
-/* {{{1 Hardware init */
-static void hardware_fpu_enable(void)
-{
-  unsigned reg;
-  /* Enable the VFP */
-  asm volatile("mrc	p15, 0, %0, c1, c0, 2;" /* Read Coprocessor Access Control Register CPACR */
-      "orr	%0, %0, #(0x3 << 20);"    /* Enable access to cp10 */
-      "orr	%0, %0, #(0x3 << 22);"    /* Enable access to cp11 */
-      "mcr	p15, 0, %0, c1, c0, 2;"
-      "fmrx	%0, FPEXC;"
-      "orr	%0, %0, #(1<<30);"  /* Set FPEXC.EN = 1 */
-      "fmxr	FPEXC, %0;"
-      : "=r" (reg) /* outputs */
-      : /* No inputs */
-      : /* clobbered */
-      );
-}
-
-static void hardware_cpu_cache_mmu_enable(void)
-{
-  /* 3. Enable I/D cache + branch prediction + MMU */
-  asm volatile(
-      "mov r0, #0;"
-      "mcr p15, 0, r0, c8, c3, 0;" // Issue TLBIALL (TLB Invalidate All)
-      "mrc p15, 0, r0, c1, c0, 0;" // System control register
-      "orr r0, r0, #(1 << 12);" // Instruction cache enable
-      "orr r0, r0, #(1 << 11);" // Program flow prediction
-      "orr r0, r0, #(1 << 2);"  // d-cache & L2-$ on
-      "orr r0, r0, #(1 << 0);"  // MMU on
-      "mcr p15, 0, r0, c1, c0, 0;" // System control register
-      "isb; dsb;"
-      : /* Outputs */
-      : /* Inputs */
-      : "r0" /* clobbered */
-      );
-}
-
-static void show_cache_mmu_status(const char *header)
-{
-  unsigned scr;
-
-  asm volatile("dsb;isb;mrc p15, 0, %0, c1, c0, 0;" : "=r" (scr) : /* Inputs */ : /* clobber */);
-  printf("===== %s =====\n", header);
-  printf("\tIcache %u\n", !!(scr & (1<<12)));
-  printf("\tFlow   %u\n", !!(scr & (1<<11)));
-  printf("\tDcache %u\n", !!(scr & (1<<2)));
-  printf("\tMMU    %u\n", !!(scr & (1<<0)));
-}
-
-static void hardware_cpu_caches_off(void)
-{
-  /* 1. MMU, L1$ disable */
-  asm volatile("mrc p15, 0, r0, c1, c0, 0;" // System control register
-      "bic r0, r0, #(1 << 12);" // Instruction cache disable
-      "bic r0, r0, #(1 << 11);" // Program flow prediction
-      "bic r0, r0, #(1 << 2);" // d-cache & L2-$ off
-      "bic r0, r0, #(1 << 0);" // mmu off
-      "mcr p15, 0, r0, c1, c0, 0;" // System control register
-      : /* Outputs */
-      : /* Inputs */
-      : "r0" /* clobbered */
-      );
-  /* 2. invalidate: L1$, TLB, branch predictor */
-  asm volatile("mov r0, #0;"
-      "mcr p15, 0, r0, c8, c7, 0;" /* Invalidate entire Unified Main TLB */
-      "mcr p15, 0, r0, c8, c6, 0;" /* Invalidate entire data TLB */
-      "mcr p15, 0, r0, c8, c5, 0;" /* Invalidate entire instruction TLB */
-      "mcr p15, 0, r0, c7, c5, 0;" /* Invalidate Instruction Cache */
-      "mcr p15, 0, r0, c7, c5, 6;" /* Invalidate branch prediction array */
-      "dsb;" /* Data sync barrier */
-      "isb;" /* Instruction sync barrier */
-      : /* Outputs */
-      : /* Inputs */
-      : "r0" /* clobbered */
-      );
-}
-
-static void hardware_mmu_ptable_setup(unsigned long iomem[], int n)
-{
-  /* See: http://www.embedded-bits.co.uk/2011/mmucode/ */
-  int i;
-  /* We use only TTBR0 from the ARM cpu. Therefore we manage a page size of 1MB.
-   * To map the whole 4GB DDR3 address space we need 4096 entries in the page table
-   */
-  static uint32_t mmu_pgtable[4096] __attribute__((aligned(16<<10)));
-  printf("MMU page table: %p\n", mmu_pgtable);
-  /* Create a MMU identity map for the whole 4GB address space */
-  for(i = 0; i < ARRAY_SIZE(mmu_pgtable); i++) {
-    mmu_pgtable[i] = i<<20; /* Section base address: one section is 1MB */
-    mmu_pgtable[i] |= 2<<0; /* This is a 1MB section entry */
-    /* See "ARM Architecture Reference Manual" section B3.8 */
-    mmu_pgtable[i] |= 5<<10; /* TEX (Type Extension): Outer attribute Write-Back, Write-Allocate */
-    mmu_pgtable[i] |= 1<<2; /* Inner attribute (aka C,B): Write-Back, Write-Allocate */
-    //mmu_pgtable[i] |= 0<<5; /* Domain */
-    mmu_pgtable[i] |= 3<<10; /* Access permissions: AP[2]=0 AP[1:0]=0b11 full access (see Table B3-8) */
-    //mmu_pgtable[i] |= 1<<15; /* AP[2] */
-    //mmu_pgtable[i] |= 1<<16; /* Shareable */
-  }
-  /* Do not cache peripheral IO memory sections */
-  for(i = 0; i < n; i++) {
-    int idx = iomem[i] >> 20;
-    printf("%s: [%d]=0x%x\n", __func__, i, idx << 20);
-    /* Non-shareable Device: TEX = 0b010 CB = 0b00 */
-    mmu_pgtable[idx] &= ~(3<<2); /* Clear C/B bits */
-    mmu_pgtable[idx] &= ~(7<<10); /* Clear TEX */
-    mmu_pgtable[idx] |= 2<<10; /* TEX = 0b010 */
-  }
-  asm volatile(
-      "mov r1, %0;"
-      "orr r1, #(1<<3);" /* Outer region bits: Normal memory, Outer Write-Back Write-Allocate Cacheable. */
-      "orr r1, #((0<<6) | (1<<0));" /* Inner region bits: Normal memory, Inner Write-Back Write-Allocate Cacheable. */
-      "mcr p15, 0, r1, c2, c0, 0;" /* Set page table address */
-      "mov r1, #0x1;"  /* Set access permissions for the domain to "client" */
-      "mcr p15, 0, r1, c3, c0, 0;"
-      "mrc p15, 0, r1, c2, c0, 2;" /* Read TTBCR */
-      "bic r1, #(1<<31);" /* No Extended Address Enable: 32-bit translation system */
-      "orr r1, #(1<<5);" /* PD1; TTBR1 should not be used */
-      "bic r1, #(1<<4);" /* PD0 */
-      "mcr p15, 0, r1, c2, c0, 2;" /* Write TTBCR */
-      : /* outputs */
-      : "r" (mmu_pgtable) /* inputs */
-      : "r0", "r1" /* clobbered */
-      );
-}
-
-static void uart_irq_enable(void)
-{
-  volatile uint8_t *gicd = gic_v2_gicd_get_address() + GICD_ITARGETSR;
-  int n, m, offset;
-  m = UART7_IRQ;
-  printf("UART gicd=%p CPUID=%d\n", gicd, (int)gicd[0]);
-  n = m / 4;
-  offset = 4*n;
-  offset += m % 4;
-  printf("\tOrig GICD_ITARGETSR[%d]=%d\n",m, (int)gicd[offset]);
-  gicd[offset] |= gicd[0];
-  printf("\tNew  GICD_ITARGETSR[%d]=%d\n",m, (int)gicd[offset]);
-  gic_v2_irq_set_prio(UART7_IRQ, portLOWEST_USABLE_INTERRUPT_PRIORITY);
-  gic_v2_irq_enable(UART7_IRQ);
-  //ARM_SLEEP;
-}
-
 #define USE_CACHE_MMU 1
-
-static void prvSetupHardware(void)
-{
-  unsigned apsr;
-  static unsigned long io_dev_map[2];
-
-  ser_dev = serial_open();
-  io_dev_map[0] = (unsigned long)ser_dev;
-  show_cache_mmu_status("MMU/Cache status at entry");
-  printf("Initializing the HW...\n");
-  if(USE_CACHE_MMU) hardware_cpu_caches_off();
-  io_dev_map[1] = (unsigned long)gic_v2_init();
-  if(USE_CACHE_MMU) hardware_mmu_ptable_setup(io_dev_map, ARRAY_SIZE(io_dev_map));
-  if(USE_CACHE_MMU) hardware_cpu_cache_mmu_enable();
-  /* Replace the exception vector table by a FreeRTOS variant */
-  vPortInstallFreeRTOSVectorTable();
-  hardware_fpu_enable();
-  uart_irq_enable();
-  serial_irq_rx_enable(ser_dev);
-  arm_read_sysreg(CNTFRQ, timer_frq);
-  if(!timer_frq) {
-    printf("Timer frequency is zero\n");
-    ARM_SLEEP;
-  }
-  asm volatile ( "mrs %0, apsr" : "=r" ( apsr ) );
-  apsr &= 0x1f;
-  printf("FreeRTOS inmate cpu-mode=%x\n", apsr);
-  show_cache_mmu_status("MMU/Cache status at runtime");
-}
-/* }}} */
 
 /* {{{1 main */
 void inmate_main(void)
@@ -594,21 +388,6 @@ void inmate_main(void)
         configMAX_PRIORITIES-1, /* The priority assigned to the task. */
         NULL );								    /* The task handle is not required, so NULL is passed. */
   }
-  xTaskCreate( blinkTask, /* The function that implements the task. */
-      "blink", /* The text name assigned to the task - for debug only; not used by the kernel. */
-      configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
-      NULL, 								/* The parameter passed to the task */
-      tskIDLE_PRIORITY, /* The priority assigned to the task. */
-      NULL );								    /* The task handle is not required, so NULL is passed. */
-  if(1) for(i = 0; i < 2; i++) {
-    xTaskCreate( floatTask, /* The function that implements the task. */
-        "float", /* The text name assigned to the task - for debug only; not used by the kernel. */
-        configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
-        (void*)i, 								/* The parameter passed to the task */
-        tskIDLE_PRIORITY+1, /* The priority assigned to the task. */
-        NULL );								    /* The task handle is not required, so NULL is passed. */
-  }
-  printf("vTaskStartScheduler goes active\n");
   vTaskStartScheduler();
   printf("vTaskStartScheduler terminated: strange!!!\n");
 	while (1) {
