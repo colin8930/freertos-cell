@@ -19,9 +19,8 @@ LD = ld
 AR = ar
 OBJCOPY = objcopy
 
-CFLAGS += -O2
-CFLAGS += -Wall -MMD -pipe -m64
-CFLAGS += $(INCLUDES) -I $(src) -I $(src)/freertos/Source/include -I $(src)/freertos-runtime
+CFLAGS += -Wall
+CFLAGS += $(INCLUDES) -I $(src) -I $(src)/freertos/Source/include
 
 LDFLAGS += -T lscript.lds
 
@@ -35,13 +34,11 @@ FREERTOS_OBJS = freertos/Source/queue.o \
 	freertos/Source/timers.o \
 	freertos/Source/tasks.o
 
-FREERTOS_RUNTIME_OBJS = freertos-runtime/string.o \
-	freertos-runtime/serial.o \
-	freertos-runtime/printf-stdarg.o \
-	freertos-runtime/lib1funcs.o
+FREERTOS_RUNTIME_OBJS = $(INMATES_LIB)/int.o \
+	$(INMATES_LIB)/printk.o
 
 RUNTIME_OBJS = $(FREERTOS_RUNTIME_OBJS) $(FREERTOS_OBJS)
-OBJS = main.o
+OBJS = main
 BOOT = boot
 
 RUNTIME_AR = libfreertos.a
@@ -53,7 +50,10 @@ DEPS := $(OBJS:.o=.d) $(RUNTIME_OBJS:.o=.d)
 $(BOOT).o: $(BOOT).S
 	$(CC) $(CFLAGS) -c -o $@ $^
 
-$(EXE_STEM).elf: $(OBJS) $(BOOT).o $(RUNTIME_AR)
+$(OBJS).o: $(OBJS).c
+	$(CC) $(CFLAGS) -c -o $@ $^
+
+$(EXE_STEM).elf: $(OBJS).o $(BOOT).o $(RUNTIME_AR)
 	$(LD) $(LDFLAGS) -o $@ $^
 
 $(RUNTIME_AR): $(RUNTIME_OBJS)
