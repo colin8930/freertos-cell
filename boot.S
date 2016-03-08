@@ -10,7 +10,7 @@
  * the COPYING file in the top-level directory.
  */
 
-#include "./main.c"
+.extern inmate_main
 
 #define X86_CR0_PE		0x00000001
 #define X86_CR0_WP		0x00010000
@@ -32,6 +32,7 @@
 #define FSEGMENT_BASE       0x0f0000
 #define COMM_REGION_BASE    0x100000
 
+#define SMP_MAX_CPUS	255
 	.code16
 	.section ".boot", "ax"
 
