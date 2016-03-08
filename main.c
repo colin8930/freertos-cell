@@ -73,6 +73,7 @@
 
 /* {{{1 Includes */
 #include <stdint.h>
+#include <inmate.h>
 #include "sysregs.h"
 #include "string.h"
 #include "serial.h"
@@ -83,6 +84,12 @@
 #include "task.h"
 #include "semphr.h"
 /* }}} */
+
+#ifdef CONFIG_UART_OXPCIE952
+#define UART_BASE       0xe000
+#else
+#define UART_BASE       0x2f8
+#endif
 
 /* {{{1 Defines */
 #define TIMER_IRQ 27
@@ -337,7 +344,10 @@ void inmate_main(void)
 {
   unsigned i;
 
-  prvSetupHardware();
+  printk_uart_base = UART_BASE;
+  int_init();
+  int_set_handler(IRQ_VECTOR, irq_handler);
+
   uart_mutex = xSemaphoreCreateMutex();
 
   xTaskCreate( uartTask, /* The function that implements the task. */

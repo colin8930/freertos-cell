@@ -1,12 +1,13 @@
 .PHONY: clean all
 
+src = $(CURDIR)
 INMATES_LIB = $(INMATES)/lib/x86
 export INMATES_LIB
 
 INCLUDES := -I$(INMATES_LIB) \
 	    -I$(INMATES_LIB)/../hypervisor/arch/x86/include \
 	    -I$(INMATES_LIB)/../hypervisor/include \
-	    -I$(INMATES_LIB)/freertos/Source/portable/GCC/X86jailhouse
+	    -I$(src)/freertos/Source/portable/GCC/X86jailhouse
 
 src = $(CURDIR)
 
