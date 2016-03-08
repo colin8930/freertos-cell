@@ -10,7 +10,7 @@
  * the COPYING file in the top-level directory.
  */
 
-#include <inmate.h>
+#include "./main.c"
 
 #define X86_CR0_PE		0x00000001
 #define X86_CR0_WP		0x00010000
@@ -23,6 +23,14 @@
 
 #define MSR_MTRR_DEF_TYPE	0x000002ff
 #define MTRR_ENABLE		0x00000800
+
+#define INMATE_CS32     0x8
+#define INMATE_CS64     0x10
+#define INMATE_DS32     0x18
+
+#define HEAP_BASE       0x000000
+#define FSEGMENT_BASE       0x0f0000
+#define COMM_REGION_BASE    0x100000
 
 	.code16
 	.section ".boot", "ax"
