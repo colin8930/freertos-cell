@@ -345,8 +345,6 @@ void inmate_main(void)
   unsigned i;
 
   printk_uart_base = UART_BASE;
-  int_init();
-  int_set_handler(IRQ_VECTOR, irq_handler);
 
   uart_mutex = xSemaphoreCreateMutex();
 
