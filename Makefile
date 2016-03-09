@@ -10,7 +10,8 @@ include $(INMATES_LIB)/x86/Makefile.lib
 INCLUDES := -I$(INMATES_LIB)/x86 \
 	    -I$(INMATES_LIB)/../../hypervisor/arch/x86/include \
 	    -I$(INMATES_LIB)/../../hypervisor/include \
-	    -I$(src)/freertos/Source/portable/GCC/X86jailhouse
+	    -I$(src)/freertos/Source/portable/GCC/X86jailhouse \
+		-I $(src)/freertos-runtime
 
 CC = gcc
 LD = ld
