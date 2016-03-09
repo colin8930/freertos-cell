@@ -29,6 +29,8 @@ FREERTOS_OBJS = freertos/Source/queue.o \
 	freertos/Source/croutine.o \
 	freertos/Source/event_groups.o \
 	freertos/Source/portable/MemMang/heap_1.o \
+	freertos/Source/portable/GCC/X86jailhouse/port.o \
+	freertos/Source/portable/GCC/X86jailhouse/portASM.o \
 	freertos/Source/timers.o \
 	freertos/Source/tasks.o
 
