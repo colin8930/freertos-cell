@@ -253,8 +253,6 @@ void vConfigureTickInterrupt( void )
   /* Register the standard FreeRTOS Cortex-A tick handler as the timer's
      interrupt handler.  The handler clears the interrupt using the
      configCLEAR_TICK_INTERRUPT() macro, which is defined in FreeRTOSConfig.h. */
-  gic_v2_irq_set_prio(TIMER_IRQ, portLOWEST_USABLE_INTERRUPT_PRIORITY);
-  gic_v2_irq_enable(TIMER_IRQ);
   timer_init(BEATS_PER_SEC);
 }
 
