@@ -236,7 +236,15 @@ static void uartTask(void *pvParameters)
       }
       else
         ++idx;
-    TickInterrupt( void )
+    }
+    else if(idx) { /* Buffer not empty */
+      serial_print(s, idx);
+      idx = 0;
+    }
+  }
+}
+
+void vConfigureTickInterrupt( void )
 {
   /* Register the standard FreeRTOS Cortex-A tick handler as the timer's
      interrupt handler.  The handler clears the interrupt using the
