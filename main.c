@@ -74,7 +74,6 @@
 /* {{{1 Includes */
 #include <stdint.h>
 #include "inmate.h"
-#include "string.h"
 
 /* Scheduler include files. */
 #include "FreeRTOS.h"
