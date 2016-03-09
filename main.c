@@ -103,7 +103,7 @@
 /* }}} */
 
 /* {{{1 Prototypes */
-void FreeRTOS_Tick_Handler( void );
+void vPortTimerHandler( void );
 void vApplicationMallocFailedHook( void );
 void vApplicationIdleHook( void );
 void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName );
@@ -236,19 +236,7 @@ static void uartTask(void *pvParameters)
       }
       else
         ++idx;
-    }
-    else if(idx) { /* Buffer not empty */
-      serial_print(s, idx);
-      idx = 0;
-    }
-  }
-}
-
-/* }}} */
-
-/* {{{1 Interrupt handling */
-
-void vConfigureTickInterrupt( void )
+    TickInterrupt( void )
 {
   /* Register the standard FreeRTOS Cortex-A tick handler as the timer's
      interrupt handler.  The handler clears the interrupt using the
@@ -261,7 +249,8 @@ void vApplicationIRQHandler(unsigned int irqn)
   switch(irqn) {
     case TIMER_IRQ:
       //timer_off();
-      FreeRTOS_Tick_Handler();
+      //FreeRTOS_Tick_Handler();
+      vPortTimerHandler();
       break;
     /* UART irq is not support now */
     /*
