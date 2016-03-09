@@ -1,344 +1,316 @@
 /*
-    FreeRTOS V8.2.0 - Copyright (C) 2015 Real Time Engineers Ltd.
+    FreeRTOS V9.0.0rc1 - Copyright (C) 2016 Real Time Engineers Ltd.
     All rights reserved
 
-
-    ***************************************************************************
-     *                                                                       *
-     *    FreeRTOS tutorial books are available in pdf and paperback.        *
-     *    Complete, revised, and edited pdf reference manuals are also       *
-     *    available.                                                         *
-     *                                                                       *
-     *    Purchasing FreeRTOS documentation will not only help you, by       *
-     *    ensuring you get running as quickly as possible and with an        *
-     *    in-depth knowledge of how to use FreeRTOS, it will also help       *
-     *    the FreeRTOS project to continue with its mission of providing     *
-     *    professional grade, cross platform, de facto standard solutions    *
-     *    for microcontrollers - completely free of charge!                  *
-     *                                                                       *
-     *    >>> See http://www.FreeRTOS.org/Documentation for details. <<<     *
-     *                                                                       *
-     *    Thank you for using FreeRTOS, and thank you for your support!      *
-     *                                                                       *
-    ***************************************************************************
-
+    VISIT http://www.FreeRTOS.org TO ENSURE YOU ARE USING THE LATEST VERSION.
 
     This file is part of the FreeRTOS distribution.
 
     FreeRTOS is free software; you can redistribute it and/or modify it under
     the terms of the GNU General Public License (version 2) as published by the
-    Free Software Foundation AND MODIFIED BY the FreeRTOS exception.
-    >>>NOTE<<< The modification to the GPL is included to allow you to
-    distribute a combined work that includes FreeRTOS without being obliged to
-    provide the source code for proprietary components outside of the FreeRTOS
-    kernel.  FreeRTOS is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-    more details. You should have received a copy of the GNU General Public
-    License and the FreeRTOS license exception along with FreeRTOS; if not it
-    can be viewed here: http://www.freertos.org/a00114.html and also obtained
-    by writing to Richard Barry, contact details for whom are available on the
-    FreeRTOS WEB site.
+    Free Software Foundation >>>> AND MODIFIED BY <<<< the FreeRTOS exception.
+
+    ***************************************************************************
+    >>!   NOTE: The modification to the GPL is included to allow you to     !<<
+    >>!   distribute a combined work that includes FreeRTOS without being   !<<
+    >>!   obliged to provide the source code for proprietary components     !<<
+    >>!   outside of the FreeRTOS kernel.                                   !<<
+    ***************************************************************************
+
+    FreeRTOS is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE.  Full license text is available on the following
+    link: http://www.freertos.org/a00114.html
+
+    ***************************************************************************
+     *                                                                       *
+     *    FreeRTOS provides completely free yet professionally developed,    *
+     *    robust, strictly quality controlled, supported, and cross          *
+     *    platform software that is more than just the market leader, it     *
+     *    is the industry's de facto standard.                               *
+     *                                                                       *
+     *    Help yourself get started quickly while simultaneously helping     *
+     *    to support the FreeRTOS project by purchasing a FreeRTOS           *
+     *    tutorial book, reference manual, or both:                          *
+     *    http://www.FreeRTOS.org/Documentation                              *
+     *                                                                       *
+    ***************************************************************************
+
+    http://www.FreeRTOS.org/FAQHelp.html - Having a problem?  Start by reading
+    the FAQ page "My application does not run, what could be wrong?".  Have you
+    defined configASSERT()?
+
+    http://www.FreeRTOS.org/support - In return for receiving this top quality
+    embedded software for free we request you assist our global community by
+    participating in the support forum.
+
+    http://www.FreeRTOS.org/training - Investing in training allows your team to
+    be as productive as possible as early as possible.  Now you can receive
+    FreeRTOS training directly from Richard Barry, CEO of Real Time Engineers
+    Ltd, and the world's leading authority on the world's leading RTOS.
+
+    http://www.FreeRTOS.org/plus - A selection of FreeRTOS ecosystem products,
+    including FreeRTOS+Trace - an indispensable productivity tool, a DOS
+    compatible FAT file system, and our tiny thread aware UDP/IP stack.
+
+    http://www.FreeRTOS.org/labs - Where new FreeRTOS products go to incubate.
+    Come and try FreeRTOS+TCP, our new open source TCP/IP stack for FreeRTOS.
+
+    http://www.OpenRTOS.com - Real Time Engineers ltd. license FreeRTOS to High
+    Integrity Systems ltd. to sell under the OpenRTOS brand.  Low cost OpenRTOS
+    licenses offer ticketed support, indemnification and commercial middleware.
+
+    http://www.SafeRTOS.com - High Integrity Systems also provide a safety
+    engineered and independently SIL3 certified version for use in safety and
+    mission critical applications that require provable dependability.
 
     1 tab == 4 spaces!
-
-    http://www.FreeRTOS.org - Documentation, latest information, license and
-    contact details.
-
-    http://www.SafeRTOS.com - A version that is certified for use in safety
-    critical systems.
-
-    http://www.OpenRTOS.com - Commercial support, development, porting,
-    licensing and training services.
 */
 
-#define SUNXI_UART7_BASE 0x01c29c00
+.file "portASM.S"
+#include "FreeRTOSConfig.h"
+#include "ISR_Support.h"
 
-	.text
-	.arm
-
-	.set SYS_MODE,	0x1f
-	.set SVC_MODE,	0x13
-	.set IRQ_MODE,	0x12
-	.set MODE_MASK,	0x1f
-
-	/* Hardware registers. */
-	.extern ulICCIAR
-	.extern ulICCEOIR
-	.extern ulICCPMR
-
-	/* Variables and functions. */
-	.extern ulMaxAPIPriorityMask
-	.extern _freertos_vector_table
 	.extern pxCurrentTCB
 	.extern vTaskSwitchContext
-	.extern vApplicationIRQHandler
-	.extern ulPortInterruptNesting
-	.extern ulPortTaskHasFPUContext
+	.extern vPortCentralInterruptHandler
+	.extern xTaskIncrementTick
+	.extern vPortAPICErrorHandler
+	.extern pucPortTaskFPUContextBuffer
+	.extern ulPortYieldPending
 
-	.global vector_irq
-	.global vector_svc
-	.global vPortRestoreTaskContext
-	.global vPortInstallFreeRTOSVectorTable
+	.global vPortStartFirstTask
+	.global vPortCentralInterruptWrapper
+	.global vPortAPICErrorHandlerWrapper
+	.global vPortTimerHandler
+	.global vPortYieldCall
+	.global vPortAPICSpuriousHandler
 
-	.align 5
-_freertos_vector_table:
-	b	freertos_vector_reset
-	b	freertos_vector_undef
-	b	freertos_vector_svc
-	b	freertos_vector_pabt
-	b	freertos_vector_dabt
-	b	freertos_vector_unused
-	b	freertos_vector_irq
-	b	freertos_vector_fiq
+	.text
 
-.macro vector, name
-	.weak freertos_vector_\name
-	freertos_vector_\name:
-	b	.
-.endm
-	vector reset
-	vector undef
-	vector pabt
-	vector dabt
-	vector unused
-	vector fiq
+/*-----------------------------------------------------------*/
 
 .align 4
-.type vPortInstallFreeRTOSVectorTable, %function
-vPortInstallFreeRTOSVectorTable:
-	/* Set VBAR to the vector table that contains the FreeRTOS handlers. */
-	ldr	r0, =_freertos_vector_table
-	mcr	p15, 0, r0, c12, c0, 0
-	dsb
-	isb
-	bx lr
+.func vPortYieldCall
+vPortYieldCall:
+	/* Save general purpose registers. */
+	pusha
 
-.macro portSAVE_CONTEXT
+	.if configSUPPORT_FPU == 1
 
-	/* Save the LR and SPSR onto the system mode stack before switching to
-	system mode to save the remaining system mode registers. */
-	SRSDB	sp!, #SYS_MODE
-	CPS		#SYS_MODE
-	PUSH	{R0-R12, R14}
+		/* If the task has a buffer allocated to save the FPU context then save
+		the FPU context now. */
+		movl	pucPortTaskFPUContextBuffer, %eax
+		test	%eax, %eax
+		je		1f
+		fnsave	( %eax )
+		fwait
 
-	/* Push the critical nesting count. */
-	LDR		R2, ulCriticalNestingConst
-	LDR		R1, [R2]
-	PUSH	{R1}
+		1:
 
-	/* Does the task have a floating point context that needs saving?  If
-	ulPortTaskHasFPUContext is 0 then no. */
-	LDR		R2, ulPortTaskHasFPUContextConst
-	LDR		R3, [R2]
-	CMP		R3, #0
+		/* Save the address of the FPU context, if any. */
+		push	pucPortTaskFPUContextBuffer
 
-	/* Save the floating point context, if any. */
-	FMRXNE  R1,  FPSCR
-	VPUSHNE {D0-D15}
-	/* FIXME VPUSHNE	{D16-D31}*/
-	PUSHNE	{R1}
+	.endif /* configSUPPORT_FPU */
 
-	/* Save ulPortTaskHasFPUContext itself. */
-	PUSH	{R3}
+	/* Find the TCB. */
+	movl 	pxCurrentTCB, %eax
 
-	/* Save the stack pointer in the TCB. */
-	LDR		R0, pxCurrentTCBConst
-	LDR		R1, [R0]
-	STR		SP, [R1]
+	/* Stack location is first item in the TCB. */
+	movl	%esp, (%eax)
 
-	.endm
+	call vTaskSwitchContext
 
-; /**********************************************************************/
+	/* Find the location of pxCurrentTCB again - a callee saved register could
+	be used in place of eax to prevent this second load, but that then relies
+	on the compiler and other asm code. */
+	movl 	pxCurrentTCB, %eax
+	movl	(%eax), %esp
 
-.macro portRESTORE_CONTEXT
+	.if configSUPPORT_FPU == 1
 
-	/* Set the SP to point to the stack of the task being restored. */
-	LDR		R0, pxCurrentTCBConst
-	LDR		R1, [R0]
-	LDR		SP, [R1]
+		/* Restore address of task's FPU context buffer. */
+		pop 	pucPortTaskFPUContextBuffer
 
-	/* Is there a floating point context to restore?  If the restored
-	ulPortTaskHasFPUContext is zero then no. */
-	LDR		R0, ulPortTaskHasFPUContextConst
-	POP		{R1}
-	STR		R1, [R0]
-	CMP		R1, #0
+		/* If the task has a buffer allocated in which its FPU context is saved,
+		then restore it now. */
+		movl	pucPortTaskFPUContextBuffer, %eax
+		test	%eax, %eax
+		je		1f
+		frstor	( %eax )
+		1:
+	.endif
 
-	/* Restore the floating point context, if any. */
-	POPNE 	{R0}
-	/*FIXME VPOPNE	{D16-D31}*/
-	VPOPNE	{D0-D15}
-	VMSRNE  FPSCR, R0
+	popa
+	iret
 
-	/* Restore the critical section nesting depth. */
-	LDR		R0, ulCriticalNestingConst
-	POP		{R1}
-	STR		R1, [R0]
-
-	/* Ensure the priority mask is correct for the critical nesting depth. */
-	LDR		R2, ulICCPMRConst
-	LDR		R2, [R2]
-	CMP		R1, #0
-	MOVEQ	R4, #255
-	LDRNE	R4, ulMaxAPIPriorityMaskConst
-	LDRNE	R4, [R4]
-	STR		R4, [R2]
-
-	/* Restore all system mode registers other than the SP (which is already
-	being used). */
-	POP		{R0-R12, R14}
-
-#if 0
-	push {r4,r5}
-	movw	r4, #(SUNXI_UART7_BASE & 0xffff)
-	movt	r4, #(SUNXI_UART7_BASE >> 16)
-	mov	r5, #'%'
-	str	r5, [r4]
-	pop {r4,r5}
-#endif
-
-	/* Return to the task code, loading CPSR on the way. */
-	RFEIA	sp!
-
-	.endm
-
-
-
-
-/******************************************************************************
- * SVC handler is used to start the scheduler.
- *****************************************************************************/
-.align 4
-freertos_vector_svc:
-	/* Save the context of the current task and select a new task to run. */
-	portSAVE_CONTEXT
-	LDR R0, vTaskSwitchContextConst
-	BLX	R0
-	portRESTORE_CONTEXT
-
-
-/******************************************************************************
- * vPortRestoreTaskContext is used to start the scheduler.
- *****************************************************************************/
-.type vPortRestoreTaskContext, %function
-vPortRestoreTaskContext:
-	/* Switch to system mode. */
-	CPS		#SYS_MODE
-	portRESTORE_CONTEXT
+.endfunc
+/*-----------------------------------------------------------*/
 
 .align 4
-freertos_vector_irq:
-	/* Return to the interrupted instruction. */
-	SUB		lr, lr, #4
+.func vPortStartFirstTask
+vPortStartFirstTask:
 
-	/* Push the return address and SPSR. */
-	PUSH	{lr}
-	MRS		lr, SPSR
-	PUSH	{lr}
+	/* Find the TCB. */
+	movl 	pxCurrentTCB, %eax
 
-	/* Change to supervisor mode to allow reentry. */
-	CPS		#SVC_MODE
+	/* Stack location is first item in the TCB. */
+	movl	(%eax), %esp
 
-	/* Push used registers. */
-	PUSH	{r0-r4, r12}
+	/* Restore FPU context flag. */
+	.if configSUPPORT_FPU == 1
 
-	/* Increment nesting count.  r3 holds the address of ulPortInterruptNesting
-	for future use.  r1 holds the original ulPortInterruptNesting value for
-	future use. */
-	LDR		r3, ulPortInterruptNestingConst
-	LDR		r1, [r3]
-	ADD		r4, r1, #1
-	STR		r4, [r3]
+		pop 	pucPortTaskFPUContextBuffer
 
-	/* Read value from the interrupt acknowledge register, which is stored in r0
-	for future parameter and interrupt clearing use. */
-	LDR 	r2, ulICCIARConst
-	LDR		r2, [r2]
-	LDR		r0, [r2]
+	.endif /* configSUPPORT_FPU */
 
-	/* Ensure bit 2 of the stack pointer is clear.  r2 holds the bit 2 value for
-	future use. */
-	MOV		r2, sp
-	AND		r2, r2, #4
-	SUB		sp, sp, r2
+	/* Restore general purpose registers. */
+	popa
+	iret
+.endfunc
+/*-----------------------------------------------------------*/
 
-	/* Call the interrupt handler. */
-	PUSH	{r0-r3, lr}
-	LDR		r1, vApplicationIRQHandlerConst
-	BLX		r1
-	POP		{r0-r3, lr}
-	ADD		sp, sp, r2
+.align 4
+.func vPortAPICErrorHandlerWrapper
+vPortAPICErrorHandlerWrapper:
+	pusha
+	call	vPortAPICErrorHandler
+	popa
+	/* EOI. */
+	movl	$0x00, (0xFEE000B0)
+	iret
+.endfunc
+/*-----------------------------------------------------------*/
 
-	CPSID	i
-	DSB
-	ISB
+.align 4
+.func vPortTimerHandler
+vPortTimerHandler:
 
-	/* Write the value read from ICCIAR to ICCEOIR. */
-	LDR 	r4, ulICCEOIRConst
-	LDR		r4, [r4]
-	STR		r0, [r4]
+	/* Save general purpose registers. */
+	pusha
 
-	/* Restore the old nesting count. */
-	STR		r1, [r3]
+	/* Interrupts are not nested, so save the rest of the task context. */
+	.if configSUPPORT_FPU == 1
 
-	/* A context switch is never performed if the nesting count is not 0. */
-	CMP		r1, #0
-	BNE		exit_without_switch
+		/* If the task has a buffer allocated to save the FPU context then save the
+		FPU context now. */
+		movl	pucPortTaskFPUContextBuffer, %eax
+		test	%eax, %eax
+		je		1f
+		fnsave	( %eax ) /* Save FLOP context into ucTempFPUBuffer array. */
+		fwait
 
-	/* Did the interrupt request a context switch?  r1 holds the address of
-	ulPortYieldRequired and r0 the value of ulPortYieldRequired for future
-	use. */
-	LDR		r1, =ulPortYieldRequired
-	LDR		r0, [r1]
-	CMP		r0, #0
-	BNE		switch_before_exit
+		1:
+		/* Save the address of the FPU context, if any. */
+		push	pucPortTaskFPUContextBuffer
 
-exit_without_switch:
-	/* No context switch.  Restore used registers, LR_irq and SPSR before
-	returning. */
-	POP		{r0-r4, r12}
-	CPS		#IRQ_MODE
-	POP		{LR}
-	MSR		SPSR_cxsf, LR
-	POP		{LR}
-	MOVS	PC, LR
+	.endif /* configSUPPORT_FPU */
 
-switch_before_exit:
-	/* A context swtich is to be performed.  Clear the context switch pending
-	flag. */
-	MOV		r0, #0
-	STR		r0, [r1]
+	/* Find the TCB. */
+	movl 	pxCurrentTCB, %eax
 
-	/* Restore used registers, LR-irq and SPSR before saving the context
-	to the task stack. */
-	POP		{r0-r4, r12}
-	CPS		#IRQ_MODE
-	POP		{LR}
-	MSR		SPSR_cxsf, LR
-	POP		{LR}
-	portSAVE_CONTEXT
+	/* Stack location is first item in the TCB. */
+	movl	%esp, (%eax)
 
-	/* Call the function that selects the new task to execute.
-	vTaskSwitchContext() if vTaskSwitchContext() uses LDRD or STRD
-	instructions, or 8 byte aligned stack allocated data.  LR does not need
-	saving as a new LR will be loaded by portRESTORE_CONTEXT anyway. */
-	LDR		R0, vTaskSwitchContextConst
-	BLX		R0
+	/* Switch stacks. */
+	movl 	ulTopOfSystemStack, %esp
+	movl	%esp, %ebp
 
-	/* Restore the context of, and branch to, the task selected to execute
-	next. */
-	portRESTORE_CONTEXT
+	/* Increment nesting count. */
+	add 	$1, ulInterruptNesting
 
-ulICCIARConst:	.word ulICCIAR
-ulICCEOIRConst:	.word ulICCEOIR
-ulICCPMRConst: .word ulICCPMR
-pxCurrentTCBConst: .word pxCurrentTCB
-ulCriticalNestingConst: .word ulCriticalNesting
-ulPortTaskHasFPUContextConst: .word ulPortTaskHasFPUContext
-ulMaxAPIPriorityMaskConst: .word ulMaxAPIPriorityMask
-vTaskSwitchContextConst: .word vTaskSwitchContext
-vApplicationIRQHandlerConst: .word vApplicationIRQHandler
-ulPortInterruptNestingConst: .word ulPortInterruptNesting
+	call 	xTaskIncrementTick
+
+	sti
+
+	/* Is a switch to another task required? */
+	test	%eax, %eax
+	je		_skip_context_switch
+	cli
+	call	vTaskSwitchContext
+
+_skip_context_switch:
+	cli
+
+	/* Decrement the variable used to determine if a switch to a system
+	stack is necessary. */
+	sub		$1, ulInterruptNesting
+
+	/* Stack location is first item in the TCB. */
+	movl 	pxCurrentTCB, %eax
+	movl	(%eax), %esp
+
+	.if configSUPPORT_FPU == 1
+
+		/* Restore address of task's FPU context buffer. */
+		pop 	pucPortTaskFPUContextBuffer
+
+		/* If the task has a buffer allocated in which its FPU context is saved,
+		then restore it now. */
+		movl	pucPortTaskFPUContextBuffer, %eax
+		test	%eax, %eax
+		je		1f
+		frstor	( %eax )
+		1:
+	.endif
+
+	popa
+
+	/* EOI. */
+	movl	$0x00, (0xFEE000B0)
+	iret
+
+.endfunc
+/*-----------------------------------------------------------*/
+
+.if configUSE_COMMON_INTERRUPT_ENTRY_POINT == 1
+
+	.align 4
+	.func vPortCentralInterruptWrapper
+	vPortCentralInterruptWrapper:
+
+		portFREERTOS_INTERRUPT_ENTRY
+
+		movl $0xFEE00170, %eax 			/* Highest In Service Register (ISR) long word. */
+		movl $8, %ecx					/* Loop counter. */
+
+	next_isr_long_word:
+		test %ecx, %ecx					/* Loop counter reached 0? */
+		je wrapper_epilogue				/* Looked at all ISR registers without finding a bit set. */
+		sub $1, %ecx					/* Sub 1 from loop counter. */
+		movl (%eax), %ebx				/* Load next ISR long word. */
+		sub $0x10, %eax					/* Point to next ISR long word in case no bits are set in the current long word. */
+		test %ebx, %ebx					/* Are there any bits set? */
+		je next_isr_long_word			/* Look at next ISR long word if no bits were set. */
+		sti
+		bsr %ebx, %ebx					/* A bit was set, which one? */
+		movl $32, %eax					/* Destination operand for following multiplication. */
+		mul %ecx						/* Calculate base vector for current register, 32 vectors per register. */
+		add %ebx, %eax					/* Add bit offset into register to get final vector number. */
+		push %eax						/* Vector number is function parameter. */
+		call vPortCentralInterruptHandler
+		pop %eax						/* Remove parameter. */
+
+	wrapper_epilogue:
+		portFREERTOS_INTERRUPT_EXIT
+
+	.endfunc
+
+.endif /* configUSE_COMMON_INTERRUPT_ENTRY_POINT */
+/*-----------------------------------------------------------*/
+
+.align 4
+.func vPortAPISpuriousHandler
+vPortAPICSpuriousHandler:
+	iret
+
+.endfunc
 
 .end
+
+
+
+
+
+
+
