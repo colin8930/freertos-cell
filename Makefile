@@ -17,9 +17,9 @@ LD = ld
 AR = ar
 OBJCOPY = objcopy
 
-CFLAGS += -O2 -Wall -MMD -pipe
+CFLAGS += -O2 -Wall -MMD -pipe -m32
 CFLAGS += $(INCLUDES) -I $(src) -I $(src)/freertos/Source/include
-ASFLAGS += $(INCLUDES) -I $(src) -I $(src)/freertos/Source/include
+ASFLAGS += -m32 $(INCLUDES) -I $(src) -I $(src)/freertos/Source/include
 LDFLAGS += -T lscript.lds
 
 EXE_STEM = freertos-demo
