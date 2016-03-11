@@ -1,145 +1,71 @@
-/* {{{1 License
-    FreeRTOS V8.2.0 - Copyright (C) 2015 Real Time Engineers Ltd.
-    All rights reserved
+/*
+ * Jailhouse, a Linux-based partitioning hypervisor
+ *
+ * Copyright (c) Siemens AG, 2013-2016
+ *
+ * Authors:
+ *  Jan Kiszka <jan.kiszka@siemens.com>
+ *
+ * This work is licensed under the terms of the GNU GPL, version 2.  See
+ * the COPYING file in the top-level directory.
+ */
 
-    VISIT http://www.FreeRTOS.org TO ENSURE YOU ARE USING THE LATEST VERSION.
+/*
+ * Layout:
+ *  0x000000..        : heap (not configured here)
+ *          ..0x0e0000: stack
+ *  0x0e0000..0x0effff: bss
+ *  0x0f0000..0x0fffef: command line, startup code, text, rodata, data
+ *  0x0ffff0..0x0fffff: startup code (boot address)
+ *  0x100000..0x100fff: communication region (not configured here)
+ */
+SECTIONS
+{
+	. = 0;
+	.cmdline	: {
+		cmdline = 0xf0000; /* adjust relocation address of variable */
+		*(.cmdline)
+		BYTE(0); /* empty string in case no buffer is provided */
+	}
 
-    This file is part of the FreeRTOS distribution.
+	/* 16-bit sections */
+	.startup	: { *(.startup) }
 
-    FreeRTOS is free software; you can redistribute it and/or modify it under
-    the terms of the GNU General Public License (version 2) as published by the
-    Free Software Foundation >>!AND MODIFIED BY!<< the FreeRTOS exception.
+	. = 0xfff0;
+	.boot		: {
+		*(.boot)
+		. = ALIGN(16);
+	}
 
-	***************************************************************************
-    >>!   NOTE: The modification to the GPL is included to allow you to     !<<
-    >>!   distribute a combined work that includes FreeRTOS without being   !<<
-    >>!   obliged to provide the source code for proprietary components     !<<
-    >>!   outside of the FreeRTOS kernel.                                   !<<
-	***************************************************************************
+	/* 32/64-bit sections */
+	. = 0xe0000;
+	stack_top = .;
+	bss_start = .;
+	.bss		: {
+		*(.bss)
+		. = ALIGN(8);
+	}
+	bss_dwords = SIZEOF(.bss) / 4;
+	bss_qwords = SIZEOF(.bss) / 8;
 
-    FreeRTOS is distributed in the hope that it will be useful, but WITHOUT ANY
-    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-    FOR A PARTICULAR PURPOSE.  Full license text is available on the following
-    link: http://www.freertos.org/a00114.html
-
-    ***************************************************************************
-     *                                                                       *
-     *    FreeRTOS provides completely free yet professionally developed,    *
-     *    robust, strictly quality controlled, supported, and cross          *
-     *    platform software that is more than just the market leader, it     *
-     *    is the industry's de facto standard.                               *
-     *                                                                       *
-     *    Help yourself get started quickly while simultaneously helping     *
-     *    to support the FreeRTOS project by purchasing a FreeRTOS           *
-     *    tutorial book, reference manual, or both:                          *
-     *    http://www.FreeRTOS.org/Documentation                              *
-     *                                                                       *
-    ***************************************************************************
-
-    http://www.FreeRTOS.org/FAQHelp.html - Having a problem?  Start by reading
-	the FAQ page "My application does not run, what could be wrong?".  Have you
-	defined configASSERT()?
-
-	http://www.FreeRTOS.org/support - In return for receiving this top quality
-	embedded software for free we request you assist our global community by
-	participating in the support forum.
-
-	http://www.FreeRTOS.org/training - Investing in training allows your team to
-	be as productive as possible as early as possible.  Now you can receive
-	FreeRTOS training directly from Richard Barry, CEO of Real Time Engineers
-	Ltd, and the world's leading authority on the world's leading RTOS.
-
-    http://www.FreeRTOS.org/plus - A selection of FreeRTOS ecosystem products,
-    including FreeRTOS+Trace - an indispensable productivity tool, a DOS
-    compatible FAT file system, and our tiny thread aware UDP/IP stack.
-
-    http://www.FreeRTOS.org/labs - Where new FreeRTOS products go to incubate.
-    Come and try FreeRTOS+TCP, our new open source TCP/IP stack for FreeRTOS.
-
-    http://www.OpenRTOS.com - Real Time Engineers ltd. license FreeRTOS to High
-    Integrity Systems ltd. to sell under the OpenRTOS brand.  Low cost OpenRTOS
-    licenses offer ticketed support, indemnification and commercial middleware.
-
-    http://www.SafeRTOS.com - High Integrity Systems also provide a safety
-    engineered and independently SIL3 certified version for use in safety and
-    mission critical applications that require provable dependability.
-
-    1 tab == 4 spaces!
-
-    Author:
-      Dr. Johann Pfefferl <johann.pfefferl@siemens.com>
-      Siemens AG
-}}} */
-
-ENTRY(vectors)
-
-SECTIONS {
-	/* jailhouse arm inmates have to start at address zero */
-        . = 0x0;
-        .boot           : { *(.boot) }
-
-        . = ALIGN(4096);
-        . = . + 0x1000;
-        stack_top = .;
-        . = . + 0x1000;
-	irq_stack_top = .;
-        bss_start = .;
-        .bss            : {
-                *(.bss)
-                *(COMMON)
-        }
-
-        . = ALIGN(4);
-        .text           : {
-		*(.vectors)
+	. = 0xf0000 + ADDR(.startup) + SIZEOF(.startup);
+	.text		: AT (ADDR(.text) & 0xffff) {
 		*(.text)
-		*(.text.*)
-		*(.gnu.linkonce.t.*)
-		*(.plt)
-		*(.gnu_warning)
-		*(.gcc_execpt_table)
-		*(.glue_7)
-		*(.glue_7t)
-		*(.vfp11_veneer)
-		*(.ARM.extab)
-		*(.gnu.linkonce.armextab.*)
-        }
-
-        .rodata         : {
-                *(.rodata)
-        }
-
-	.rodata1 : {
-	   __rodata1_start = .;
-	   *(.rodata1)
-	   *(.rodata1.*)
-	   __rodata1_end = .;
 	}
 
-        .data           : {
-		__data_start = .;
+	. = ALIGN(16);
+	.rodata		: AT (ADDR(.rodata) & 0xffff) {
+		*(.rodata)
+	}
+
+	. = ALIGN(16);
+	.data		: AT (ADDR(.data) & 0xffff) {
 		*(.data)
-		*(.data.*)
-		*(.gnu.linkonce.d.*)
-		*(.jcr)
-		*(.got)
-		*(.got.plt)
-		__data_end = .;
-        }
-
-	.sdata2 : {
-	   __sdata2_start = .;
-	   *(.sdata2)
-	   *(.sdata2.*)
-	   *(.gnu.linkonce.s2.*)
-	   __sdata2_end = .;
 	}
-	
-	.sbss2 : {
-	   __sbss2_start = .;
-	   *(.sbss2)
-	   *(.sbss2.*)
-	   *(.gnu.linkonce.sb2.*)
-	   __sbss2_end = .;
+
+	/DISCARD/ : {
+		*(.eh_frame*)
 	}
 }
+
+ENTRY(__reset_entry)
