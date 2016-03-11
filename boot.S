@@ -12,8 +12,6 @@
 
 .extern inmate_main
 
-#include <inmate.h>
-
 #define X86_CR0_PE		0x00000001
 #define X86_CR0_WP		0x00010000
 #define X86_CR0_PG		0x80000000
