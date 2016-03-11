@@ -82,9 +82,9 @@
 /* }}} */
 
 #ifdef CONFIG_UART_OXPCIE952
-#define UART_BASE       0xe000
+#define UART_BASE       0xe010
 #else
-#define UART_BASE       0x2f8
+#define UART_BASE       0x3f8
 #endif
 
 /* {{{1 Defines */
@@ -282,12 +282,9 @@ static void testTask( void *pvParameters )
 {
   unsigned id = (unsigned)pvParameters;
   TickType_t period = ++id * pdMS_TO_TICKS(100);
-  char buf[128];
-  unsigned cnt = 0;
   TickType_t pxPreviousWakeTime = xTaskGetTickCount();
   while(pdTRUE) {
-    sprintf(buf, "T%02u\tperiod:%5u;\tloop:%5u;\ttick:%6u\n", id, (unsigned)period, cnt++, (unsigned)xTaskGetTickCount());
-    UART_OUTPUT(buf);
+    UART_OUTPUT("uart!");
 #if 0
     if(0x7 == (0x7 & cnt)) /* Force a task switch */
       taskYIELD();
@@ -330,7 +327,6 @@ void inmate_main(void)
   unsigned i;
 
   printk_uart_base = UART_BASE;
-
   uart_mutex = xSemaphoreCreateMutex();
 
   xTaskCreate( uartTask, /* The function that implements the task. */
