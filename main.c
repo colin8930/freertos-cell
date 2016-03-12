@@ -119,6 +119,7 @@ static SemaphoreHandle_t uart_mutex;
 
 void vAssertCalled( const char * pcFile, unsigned long ulLine )
 {
+  printk("assert\n");
   volatile unsigned long ul = 0;
 
   ( void ) pcFile;
@@ -139,6 +140,7 @@ void vAssertCalled( const char * pcFile, unsigned long ulLine )
 
 void vApplicationMallocFailedHook( void )
 {
+  printk("malloc failed\n");
   /* Called if a call to pvPortMalloc() fails because there is insufficient
      free memory available in the FreeRTOS heap.  pvPortMalloc() is called
      internally by FreeRTOS API functions that create tasks, queues, software
@@ -155,7 +157,7 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
 {
   ( void ) pcTaskName;
   ( void ) pxTask;
-
+  printk("stack overflow\n");
   /* Run time stack overflow checking is performed if
      configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2.  This hook
      function is called if a stack overflow is detected. */
@@ -200,6 +202,7 @@ static inline void timer_set_next_event(void)
 /* Function called by FreeRTOS_Tick_Handler as last action */
 void vClearTickInterrupt(void)
 {
+  printk("clear tick\n");
   timer_set_next_event();
 	//timer_on();
 }
@@ -221,33 +224,12 @@ static void serial_print(char *buf, int n)
   UART_OUTPUT("TUA\t%d %s\n", n, buf);
 }
 
-static void uartTask(void *pvParameters)
-{
-  uint32_t c;
-  char s[80];
-  int idx = 0;
-  while(pdTRUE) {
-    if(pdTRUE == xTaskNotifyWait(0, 0, &c, pdMS_TO_TICKS(250))) {
-      s[idx] = c;
-      if('\r' == s[idx] || idx >= sizeof(s)-1) {
-        serial_print(s, idx);
-        idx = 0;
-      }
-      else
-        ++idx;
-    }
-    else if(idx) { /* Buffer not empty */
-      serial_print(s, idx);
-      idx = 0;
-    }
-  }
-}
-
-void vConfigureTickInterrupt( void )
+void vConfigureTickInterrupt(void)
 {
   /* Register the standard FreeRTOS Cortex-A tick handler as the timer's
      interrupt handler.  The handler clears the interrupt using the
      configCLEAR_TICK_INTERRUPT() macro, which is defined in FreeRTOSConfig.h. */
+  printk("configure tick interrupt\n");
   timer_init(BEATS_PER_SEC);
 }
 
@@ -257,14 +239,9 @@ void vApplicationIRQHandler(unsigned int irqn)
     case TIMER_IRQ:
       //timer_off();
       //FreeRTOS_Tick_Handler();
+      printk("timer irq\n");
       vPortTimerHandler();
       break;
-    /* UART irq is not support now */
-    /*
-    case UART7_IRQ:
-      handle_uart_irq();
-      break;
-    */
     case 0x3ff:
       /* This irq should be ignored. It is no longer relevant */
       break;
@@ -276,46 +253,12 @@ void vApplicationIRQHandler(unsigned int irqn)
 
 /* }}} */
 
-/* {{{1 FreeRTOS application tasks */
-
-static void testTask( void *pvParameters )
+void printTask(void *pvParam)
 {
-  unsigned id = (unsigned)pvParameters;
-  TickType_t period = ++id * pdMS_TO_TICKS(100);
-  TickType_t pxPreviousWakeTime = xTaskGetTickCount();
-  while(pdTRUE) {
-    UART_OUTPUT("uart!");
-#if 0
-    if(0x7 == (0x7 & cnt)) /* Force a task switch */
-      taskYIELD();
-#else
-    vTaskDelayUntil(&pxPreviousWakeTime, period);
-#endif
-  }
-  vTaskDelete( NULL );
-}
-
-static void sendTask(void *pvParameters)
-{
-  TaskHandle_t recvtask = pvParameters;
-  TickType_t pxPreviousWakeTime = xTaskGetTickCount();
+  char *str = (char *)pvParam;
   while(1) {
-    UART_OUTPUT("Sending ...\n");
-    xTaskNotify(recvtask, 0, eIncrement);
-    vTaskDelayUntil(&pxPreviousWakeTime, pdMS_TO_TICKS(1000));
-  }
-}
-
-static void recvTask(void *pvParameters)
-{
-  while(1) {
-    uint32_t value;
-    if(pdTRUE == xTaskNotifyWait(0, 0, &value, portMAX_DELAY)) {
-      UART_OUTPUT("Value received: %u\n", (unsigned)value);
-    }
-    else {
-      printk("No value received\n");
-    }
+    printk(str);
+    vTaskDelay(20);
   }
 }
 
@@ -329,46 +272,24 @@ void inmate_main(void)
   printk_uart_base = UART_BASE;
   uart_mutex = xSemaphoreCreateMutex();
 
-  xTaskCreate( uartTask, /* The function that implements the task. */
-      "uartstat", /* The text name assigned to the task - for debug only; not used by the kernel. */
-      configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
-      NULL,                                                            /* The parameter passed to the task */
-      configMAX_PRIORITIES-1, /* The priority assigned to the task. */
-      &uart_task_handle );
+  char* str1 = "Task1\n";
+  char* str2 = "Task2\n";
+  char* str3 = "Task3\n";
 
-  if(1) for(i = 0; i < 20; i++) {
-    int prio = 1 + i % (configMAX_PRIORITIES-1);
-    printk("Create task %u with prio %d\n", i, prio);
-    xTaskCreate( testTask, /* The function that implements the task. */
-        "test", /* The text name assigned to the task - for debug only; not used by the kernel. */
-        configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
-        (void*)i, 								/* The parameter passed to the task */
-        prio, /* The priority assigned to the task. */
-        NULL );								    /* The task handle is not required, so NULL is passed. */
-  }
+  xTaskCreate(printTask, "Task1", configMINIMAL_STACK_SIZE, (void *)str1, 1, NULL);
+  printk("Task1 is created\n");
 
-  if(1) { /* Task notification test */
-    TaskHandle_t recv_task_handle;
-    xTaskCreate( recvTask, /* The function that implements the task. */
-        "receive", /* The text name assigned to the task - for debug only; not used by the kernel. */
-        configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
-        NULL, 								/* The parameter passed to the task */
-        configMAX_PRIORITIES-2, /* The priority assigned to the task. */
-        &recv_task_handle );		/* The task handle */
-    xTaskCreate( sendTask, /* The function that implements the task. */
-        "sender", /* The text name assigned to the task - for debug only; not used by the kernel. */
-        configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
-        recv_task_handle, 				/* The parameter passed to the task */
-        configMAX_PRIORITIES-1, /* The priority assigned to the task. */
-        NULL );								    /* The task handle is not required, so NULL is passed. */
-  }
+  xTaskCreate(printTask, "Task2", configMINIMAL_STACK_SIZE, (void *)str2, 1, NULL);
+  printk("Task2 is created\n");
+
+  xTaskCreate(printTask, "Task3", configMINIMAL_STACK_SIZE, (void *)str3, 1, NULL);
+  printk("Task3 is created\n");
+
   vTaskStartScheduler();
-  printk("vTaskStartScheduler terminated: strange!!!\n");
-	while (1) {
-    X86_SLEEP;
-  }
+  while(1);
+  return 0;
 }
 /* }}} */
 
 /* vim:foldmethod=marker
- */
+ ;*/
