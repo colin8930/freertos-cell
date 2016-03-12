@@ -125,7 +125,7 @@
  * If configSUPPORT_FPU is set to 0 then floating point instructions must never
  * be used.
  */
-#define configSUPPORT_FPU						1
+#define configSUPPORT_FPU						0
 
 /* There are two ways of implementing interrupt handlers:
  *
@@ -154,7 +154,7 @@
 #define configMINIMAL_STACK_SIZE				( 125 )
 #define configUSE_TICKLESS_IDLE					0
 #define configTICK_RATE_HZ						( ( TickType_t ) 1000 )
-#define configUSE_PREEMPTION					1
+#define configUSE_PREEMPTION					0
 #define configUSE_IDLE_HOOK						0
 #define configUSE_TICK_HOOK						0
 #define configMAX_PRIORITIES					( 7 )
@@ -162,7 +162,7 @@
 #define configMAX_TASK_NAME_LEN					( 10 )
 #define configUSE_TRACE_FACILITY				0
 #define configUSE_16_BIT_TICKS					0
-#define configIDLE_SHOULD_YIELD					1
+#define configIDLE_SHOULD_YIELD					0
 #define configUSE_MUTEXES						1
 #define configQUEUE_REGISTRY_SIZE				8
 #define configCHECK_FOR_STACK_OVERFLOW			2
@@ -192,7 +192,7 @@ to exclude the API function. */
 #define INCLUDE_vTaskSuspend					1
 #define INCLUDE_vTaskDelayUntil					1
 #define INCLUDE_vTaskDelay						1
-#define INCLUDE_xTimerPendFunctionCall			1
+#define INCLUDE_xTimerPendFunctionCall			0
 #define INCLUDE_eTaskGetState					1
 
 /* This demo makes use of one or more example stats formatting functions.  These
